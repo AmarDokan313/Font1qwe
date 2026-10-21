@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>বাংলা টাইপোগ্রাফি টুল</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anek+Bangla:wght@400;700&family=Baloo+Da+2:wght@400;700&family=Hind+Siliguri:wght@400;700&family=Noto+Sans+Bengali:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Hind Siliguri', sans-serif;
+      background: #f3f4f6;
+      color: #111827;
+    }
+    .wrap {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+    h1 {
+      font-size: 22px;
+      margin: 8px 0 16px;
+      text-align: center;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+    @media (min-width: 760px) {
+      .layout { grid-template-columns: 340px 1fr; }
+    }
+    .panel {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    label {
+      display: block;
+      font-size: 14px;
+      margin: 12px 0 6px;
+      font-weight: 600;
+    }
+    textarea {
+      width: 100%;
+      min-height: 110px;
+      padding: 10px;
+      font-size: 18px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-family: inherit;
+      resize: vertical;
+    }
+    select, input[type="range"] {
+      width: 100%;
+    }
+    select {
+      padding: 8px;
+      font-size: 15px;
+      border-radius: 8px;
+      border: 1px solid #d1d5db;
+    }
+    .row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    input[type="color"] {
+      width: 60px;
+      height: 36px;
+      border: none;
+      padding: 0;
+      background: none;
+      cursor: pointer;
+    }
+    .value {
+      font-size: 13px;
+      color: #6b7280;
+    }
+    button {
+      width: 100%;
+      margin-top: 18px;
+      padding: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      background: #2563eb;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:active { background: #1d4ed8; }
+    .preview-box {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    canvas {
+      width: 100%;
+      max-width: 540px;
+      height: auto;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+    }
+    .note {
+      font-size: 12px;
+      color: #6b7280;
+      text-align: center;
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>বাংলা টাইপোগ্রাফি টুল</h1>
+    <div class="layout">
+
+      <div class="panel">
+        <label for="text">আপনার লেখা</label>
+        <textarea id="text" placeholder="এখানে বাংলা লিখুন...">শুভ বিবাহ</textarea>
+
+        <label for="font">ফন্ট</label>
+        <select id="font">
+          <option value="Noto Sans Bengali">Noto Sans Bengali</option>
+          <option value="Hind Siliguri">Hind Siliguri</option>
+          <option value="Baloo Da 2">Baloo Da 2</option>
+          <option value="Anek Bangla">Anek Bangla</option>
+        </select>
+
+        <label for="size">লেখার আকার: <span id="sizeVal" class="value">80</span></label>
+        <input type="range" id="size" min="20" max="200" value="80">
+
+        <div class="row">
+          <div style="flex:1">
+            <label for="textColor">লেখার রঙ</label>
+            <input type="color" id="textColor" value="#1f2937">
+          </div>
+          <div style="flex:1">
+            <label for="bgColor">ব্যাকগ্রাউন্ড</label>
+            <input type="color" id="bgColor" value="#fef3c7">
+          </div>
+        </div>
+
+        <button id="download">PNG হিসেবে ডাউনলোড</button>
+        <div class="note">ছবি 1080 × 1080 আকারে সেভ হবে</div>
+      </div>
+
+      <div class="panel preview-box">
+        <canvas id="canvas" width="1080" height="1080"></canvas>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const textEl = document.getElementById('text');
+    const fontEl = document.getElementById('font');
+    const sizeEl = document.getElementById('size');
+    const sizeVal = document.getElementById('sizeVal');
+    const textColorEl = document.getElementById('textColor');
+    const bgColorEl = document.getElementById('bgColor');
+    const downloadBtn = document.getElementById('download');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    const W = canvas.width;
+    const H = canvas.height;
+
+    // শব্দ ধরে লাইন ভাঙা, যাতে লেখা ছবির বাইরে না যায়
+    function wrapLines(text, maxWidth) {
+      const paragraphs = text.split('\n');
+      const lines = [];
+      for (const para of paragraphs) {
+        const words = para.split(' ');
+        let current = '';
+        for (const word of words) {
+          const test = current ? current + ' ' + word : word;
+          if (ctx.measureText(test).width <= maxWidth) {
+            current = test;
+          } else {
+            if (current) lines.push(current);
+            current = word;
+          }
+        }
+        lines.push(current);
+      }
+      return lines;
+    }
+
+    async function draw() {
+      const fontName = fontEl.value;
+      const size = parseInt(sizeEl.value, 10);
+      sizeVal.textContent = size;
+
+      try {
+        await document.fonts.load(`${size}px "${fontName}"`);
+      } catch (e) {
+        // ফন্ট লোড না হলে ডিফল্ট ফন্টে দেখাবে
+      }
+
+      ctx.fillStyle = bgColorEl.value;
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.font = `${size}px "${fontName}", sans-serif`;
+      ctx.fillStyle = textColorEl.value;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      const maxWidth = W * 0.85;
+      const lineHeight = size * 1.4;
+      const lines = wrapLines(textEl.value || ' ', maxWidth);
+      const totalHeight = lines.length * lineHeight;
+      let y = (H - totalHeight) / 2 + lineHeight / 2;
+
+      for (const line of lines) {
+        ctx.fillText(line, W / 2, y);
+        y += lineHeight;
+      }
+    }
+
+    downloadBtn.addEventListener('click', async () => {
+      await draw();
+      const link = document.createElement('a');
+      link.download = 'bangla-design.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    });
+
+    [textEl, fontEl, sizeEl, textColorEl, bgColorEl].forEach(el => {
+      el.addEventListener('input', draw);
+      el.addEventListener('change', draw);
+    });
+
+    document.fonts.ready.then(draw);
+    draw();
+  </script>
+</body>
+</html>
